@@ -14,7 +14,7 @@ class ColetorDadosUasg:
                  cabecalhos: Optional[Dict[str, str]] = None):
         """
         Inicializa a classe ColetorDadosUasg.
-        :param url_base: URL base da API para consultar os dados das UASGs (padrão é a URL do Governo).
+        :param url_base: URL base da API para consultar os dados das UASGs.
         :param cabecalhos: Cabeçalhos HTTP personalizados para a requisição.
         """
         self.url_base = url_base
@@ -64,21 +64,43 @@ class ColetorDadosUasg:
         logger.info("Convertendo dados para DataFrame.")
         return pd.DataFrame(self.todos_dados)
 
+def corrigir_cnpj(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Verifica a coluna 'cnpjCpfOrgao' e ajusta os valores:
+    - Transforma o valor para string.
+    - Se o valor for composto apenas por dígitos e tiver 13 caracteres (ou seja, faltando o zero à esquerda), 
+      adiciona um "0" à esquerda.
+    """
+    if 'cnpjCpfOrgao' in df.columns:
+        def ajustar_valor(valor):
+            valor_str = str(valor).strip()
+            # Se for apenas dígitos e tiver 13 caracteres, adiciona o zero à esquerda.
+            if valor_str.isdigit() and len(valor_str) == 13:
+                return "0" + valor_str
+            return valor_str
+
+        df['cnpjCpfOrgao'] = df['cnpjCpfOrgao'].apply(ajustar_valor)
+        logger.info("Coluna 'cnpjCpfOrgao' ajustada com sucesso.")
+    else:
+        logger.warning("Coluna 'cnpjCpfOrgao' não encontrada no DataFrame.")
+    return df
+
 def main():
     # Configurações que podem ser alteradas conforme necessário
-    url_base = "https://dadosabertos.compras.gov.br/modulo-uasg/1_consultarUasg"  # URL da API (mantenha a padrão ou edite)
-    caminho_salvamento_csv = "BASES/dados_uasg_DIRTY.csv"  # Caminho onde o arquivo será salvo
+    url_base = "https://dadosabertos.compras.gov.br/modulo-uasg/1_consultarUasg"  # URL da API
+    caminho_salvamento_csv_dirty = "BASES/dados_uasg_DIRTY.csv"  # Caminho onde o arquivo dirty será salvo
+    caminho_salvamento_csv_df = "BASES/dados_uasg_DF.csv"  # Caminho onde o arquivo filtrado será salvo
 
-    # Verifica se o diretório de salvamento existe, senão cria
-    if not os.path.exists(os.path.dirname(caminho_salvamento_csv)):
-        os.makedirs(os.path.dirname(caminho_salvamento_csv))
-        logger.info(f"Diretório criado: {os.path.dirname(caminho_salvamento_csv)}")
+    # Garante que o diretório de salvamento exista
+    if not os.path.exists(os.path.dirname(caminho_salvamento_csv_dirty)):
+        os.makedirs(os.path.dirname(caminho_salvamento_csv_dirty))
+        logger.info(f"Diretório criado: {os.path.dirname(caminho_salvamento_csv_dirty)}")
 
     # Inicializa o coletor de dados
     coletor = ColetorDadosUasg(url_base=url_base)
     logger.info("Iniciando a coleta de dados.")
     
-    # Coleta os dados
+    # Coleta os dados e converte para DataFrame
     coletor.obter_todos_dados()
     df = coletor.para_dataframe()
     logger.info("Dados carregados e DataFrame criado com sucesso.")
@@ -86,9 +108,17 @@ def main():
     # Exibe uma amostra dos dados coletados (opcional)
     logger.info(f"Exibindo os dados coletados:\n{df.head()}")
 
-    # Salva o DataFrame em um arquivo CSV
-    df.to_csv(caminho_salvamento_csv, index=False)
-    logger.info(f"Arquivo CSV '{caminho_salvamento_csv}' salvo com sucesso.")
+    # Corrige a coluna 'cnpjCpfOrgao'
+    df = corrigir_cnpj(df)
+    
+    # Salva o DataFrame completo (dirty) em um arquivo CSV 
+    df.to_csv(caminho_salvamento_csv_dirty, index=False)
+    logger.info(f"Arquivo CSV '{caminho_salvamento_csv_dirty}' salvo com sucesso.")
+
+    # Filtra os dados onde 'siglaUf' seja igual a 'DF'
+    df_df = df[df['siglaUf'] == 'DF']
+    df_df.to_csv(caminho_salvamento_csv_df, index=False)
+    logger.info(f"Arquivo CSV filtrado '{caminho_salvamento_csv_df}' (apenas 'DF') salvo com sucesso.")
 
 if __name__ == "__main__":
     main()
