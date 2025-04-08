@@ -66,7 +66,7 @@ class ColetorDadosUasg:
 
 def corrigir_cnpj(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Verifica a coluna 'cnpjCpfOrgao' e ajusta os valores:
+    Verifica a coluna 'cnpjCpfOrgao' e ajusta os valores:A
     - Transforma o valor para string.
     - Se o valor for composto apenas por dígitos e tiver 13 caracteres (ou seja, faltando o zero à esquerda), 
       adiciona um "0" à esquerda.
@@ -76,7 +76,7 @@ def corrigir_cnpj(df: pd.DataFrame) -> pd.DataFrame:
             valor_str = str(valor).strip()
             # Se for apenas dígitos e tiver 13 caracteres, adiciona o zero à esquerda.
             if valor_str.isdigit() and len(valor_str) == 13:
-                return "0" + valor_str
+                return "0" + valor_str      
             return valor_str
 
         df['cnpjCpfOrgao'] = df['cnpjCpfOrgao'].apply(ajustar_valor)
